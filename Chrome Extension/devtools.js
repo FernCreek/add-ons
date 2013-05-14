@@ -20,9 +20,11 @@ var view_getProperties = function () {
   }
 
   if (view) {
-    var localObservers = [],
-      bindings = [],
-      displayDidChange = view.displayDidChange;
+    var keys,
+        localObservers = {},
+        observers = {},
+        bindingObservers = {},
+        bindings = [];
 
     // Assign variables for easy access.
     window.$0v = view;
@@ -50,36 +52,62 @@ var view_getProperties = function () {
     }
 
     // Pull out observers.
-    for (var key in view) {
-      var observedProp = key.match(/_kvo_local_(.*)/),
-        anonFunction;
+    keys = view._kvo_observed_keys;
+    keys.forEach(function(key) {
+      var kvoKey = '_kvo_local_' + key,
+          observer = view[kvoKey],
+          observerTarget,
+          observerFn,
+          bindingPath;
 
-      if (observedProp) {
-        observedProp = observedProp[1];
-        localObservers.push(observedProp + " >> this." + view['_kvo_local_' + observedProp][0]);
+      if (observer !== undefined) {
+        if (!localObservers[key]) {
+          localObservers[key] = [];
+        }
+        observer.forEach(function(o) {
+          localObservers[key].push(o);
+        });
       } else {
-        observedProp = key.match(/_kvo_observers_(.*)/);
-        if (observedProp) {
-          observedProp = observedProp[1];
+        kvoKey = '_kvo_observers_' + key;
+        observer = view[kvoKey];
 
-          anonFunction = view['_kvo_observers_' + observedProp].members[0][1];
+        if (observer !== undefined) {
+          observer.members.forEach(function(o) {
+            observerTarget = o[0];
+            observerFn = o[1];
 
-          if (anonFunction === view.displayDidChange) {
-            localObservers.push(observedProp + " >> this.displayDidChange (displayProperties)");
-          } else if (anonFunction === view._isVisibleDidChange) {
-            localObservers.push(observedProp + " >> this._isVisibleDidChange (SC.CoreView)");
-          } else if (anonFunction === view._isFirstResponderDidChange) {
-            localObservers.push(observedProp + " >> this._isFirstResponderDidChange (SC.CoreView)");
-          } else {
-            localObservers.push(observedProp + " >> " + anonFunction);
-          }
+            if (observerTarget instanceof SC.Binding.constructor) {
+              if (!bindingObservers[key]) {
+                bindingObservers[key] = [];
+              }
+              bindingPath = observerTarget._toRoot !== view ?
+                  '--> <%@>:%@'.fmt(observerTarget._toRoot, observerTarget._toPropertyPath) :
+                  '--> %@'.fmt(observerTarget._toPropertyPath);
+              bindingObservers[key].push({ binding: bindingPath, rawBinding: observerTarget });
+            } else if (observerFn === view.displayDidChange) {
+              // This is a display property. No-op.
+            } else {
+              if (!observers[key]) {
+                observers[key] = [];
+              }
+              observers[key].push({ target: observerTarget, method: observerFn.toString() });
+            }
+          });
         }
       }
-    }
+    });
 
-    if (localObservers.length) {
-      localObservers = localObservers.sort();
-      data[' Observers'] = localObservers;
+    keys = Object.keys(localObservers);
+    if (keys.length) {
+      data['Local Observers (' + keys.length + ')'] = localObservers;
+    }
+    keys = Object.keys(observers);
+    if (keys.length) {
+      data['Observers (' + keys.length + ')'] = observers;
+    }
+    keys = Object.keys(bindingObservers);
+    if (keys.length) {
+      data['Binding Observers (' + keys.length + ')'] = bindingObservers;
     }
 
     // Pull out bindings.
