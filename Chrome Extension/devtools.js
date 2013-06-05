@@ -1,7 +1,3 @@
-// Copyright (c) 2012 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 // The function below is executed in the context of the inspected page.
 var view_getProperties = function () {
   var view = window.SC && $0 ? SC.View.views[$0.id] : null,
