@@ -24,7 +24,11 @@ var view_getProperties = function () {
         localObservers = {},
         observers = {},
         bindingObservers = {},
-        bindings = [];
+        bindings = [],
+        foundLayerIds = [],
+        innerNode,
+        innerParentNode,
+        innerView;
 
     // Assign variables for easy access.
     window.$0v = view;
@@ -40,7 +44,22 @@ var view_getProperties = function () {
       isEnabled: view.get('isEnabled')
       // theme: view.get('theme').name
     };
+    
+    // Dig even deeper and construct layerids up the chain
+    innerNode = $0;
+    while (innerParentNode = innerNode.parentNode) {
+      // Keep trying.
+      innerView = SC.View.views[innerParentNode.id];
+      if (innerView) {
+        foundLayerIds.push('//' + innerView.get('tagName') + '[@id=' + innerView.get('layerId') + '] ... (' + innerView.get('constructor') + ')');
+      }
+      innerNode = innerParentNode;
+    }
 
+    if (foundLayerIds.length) {
+      data['xPathsUpTheChain'] = foundLayerIds;
+    }
+    
     // If the view wants accelerated layer, indicate if it got it.
     if (view.get('wantsAcceleratedLayer')) {
       data.hasAcceleratedLayer = view.get('hasAcceleratedLayer');
